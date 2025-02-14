@@ -1,0 +1,9 @@
+name = 'lanjmp'
+main = "worker.js"
+compatibility_date = "2024-11-11"
+# wrangler.toml (wrangler v3.88.0^)
+[observability.logs]
+enabled = true
+
+
+
