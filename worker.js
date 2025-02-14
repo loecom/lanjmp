@@ -9,7 +9,7 @@ function validateParams(params) {
     if (missing.length > 0) {
         return {
             valid: false,
-            message: `Missing required fields: ${missing.join(', ')}`
+            message: `缺失必要参数: ${missing.join(', ')}`
         }
     }
     
@@ -45,12 +45,12 @@ async function handleRequest(request) {
         return handleRedirect(request, userId, pathParts)
     }
 
-    return new Response('Not Found', { status: 404 })
+    return new Response('404 Not Found', { status: 404 })
 }
 
 async function handleRedirect(request, userId, pathParts) {
     const data = await USER_DATA.get(userId, { type: 'json' })
-    if (!data) return new Response('User not found', { status: 404 })
+    if (!data) return new Response('用户不存在', { status: 404 })
 
     const url = new URL(request.url)
     const protocol = data.https ? 'https' : 'http'
@@ -68,7 +68,7 @@ async function handleUpdate(request) {
     try {
         params = await request.json()
     } catch (e) {
-        return new Response('Invalid JSON', { status: 400 })
+        return new Response('参数不合法', { status: 400 })
     }
 
     const validation = validateParams(params)
@@ -79,11 +79,11 @@ async function handleUpdate(request) {
     const { userId, password, https, ip, port } = params
     const data = await USER_DATA.get(userId, { type: 'json' })
 
-    if (!data) return new Response('User not found', { status: 404 })
-    if (data.password !== password) return new Response('Unauthorized', { status: 401 })
+    if (!data) return new Response('用户不存在', { status: 404 })
+    if (data.password !== password) return new Response('未认证', { status: 401 })
 
     await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port }))
-    return new Response('Updated', { status: 200 })
+    return new Response('更新成功', { status: 200 })
 }
 
 async function handleCreate(request) {
@@ -91,7 +91,7 @@ async function handleCreate(request) {
     try {
         params = await request.json()
     } catch (e) {
-        return new Response('Invalid JSON', { status: 400 })
+        return new Response('参数不合法', { status: 400 })
     }
 
     const validation = validateParams(params)
@@ -108,10 +108,10 @@ async function handleCreate(request) {
     
     const exists = await USER_DATA.get(userId)
 
-    if (exists) return new Response('User exists', { status: 409 })
+    if (exists) return new Response('用户已存在', { status: 409 })
 
     await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port }))
-    return new Response('Created', { status: 201 })
+    return new Response('注册成功', { status: 201 })
 }
 
 function isReserveduserId(userId) {
