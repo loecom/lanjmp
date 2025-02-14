@@ -5,5 +5,7 @@ compatibility_date = "2024-11-11"
 [observability.logs]
 enabled = true
 
-
+[[kv_namespaces]]
+binding = "USER_DATA"
+id = "40c772ed715b41bcb055c2e2c1e8fbfb"
 
