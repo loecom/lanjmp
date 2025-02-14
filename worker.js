@@ -142,6 +142,9 @@ function getRegisterHtml() {
 </head>
 <body>
     <h1>内链通注册</h1>
+    <div class="help">
+        <p>📖<a href="https://github.com/iLay1678/lanjmp" target="_blank">使用说明</a></p>
+    </div>
     <div id="cookie-warning" class="cookie-warning">请启用浏览器 Cookie 功能以确保正常使用</div>
     <div id="error" class="error"></div>
     <div class="form-group">
@@ -166,10 +169,6 @@ function getRegisterHtml() {
         </label>
     </div>
     <button onclick="register()">注册</button>
-    
-    <div class="help">
-        <p>📖 查看 <a href="https://github.com/iLay1678/lanjmp" target="_blank">使用说明文档</a></p>
-    </div>
 
     <script>
     function checkCookies() {
