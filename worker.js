@@ -125,7 +125,7 @@ function getRegisterHtml() {
 <html>
 <head>
     <meta charset="utf-8">
-    <title>内链通 - 注册</title>
+    <title>内链跳转 - 注册</title>
     <style>
         body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
         .form-group { margin-bottom: 15px; }
@@ -141,7 +141,7 @@ function getRegisterHtml() {
     </style>
 </head>
 <body>
-    <h1>内链通注册</h1>
+    <h1>内链跳转注册</h1>
     <div class="help">
         <p>📖<a href="https://github.com/iLay1678/lanjmp" target="_blank">使用说明</a></p>
     </div>
