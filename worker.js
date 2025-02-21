@@ -134,8 +134,17 @@ async function handleUpdate(request) {
     if (!data) return new Response('用户不存在', { status: 404 })
     if (data.password !== password) return new Response('未认证', { status: 401 })
 
-    await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port, accessKey }))
-    return new Response('更新成功', { status: 200 })
+    try {
+        await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port, accessKey }))
+        // 验证更新是否成功
+        const updatedData = await USER_DATA.get(userId, { type: 'json' })
+        if (!updatedData) {
+            return new Response('更新失败，请重试', { status: 500 })
+        }
+        return new Response('更新成功', { status: 200 })
+    } catch (error) {
+        return new Response('更新失败，请重试', { status: 500 })
+    }
 }
 
 async function handleCreate(request) {
