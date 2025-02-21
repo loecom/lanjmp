@@ -65,7 +65,7 @@ async function handleRedirect(request, userId, pathParts) {
     if (!data) return new Response('用户不存在', { status: 404 })
 
     // 检查是否需要密码验证
-    if (data.accessKey && data.accessKey != '') {
+    if (data.accessKey && data.accessKey !== '') {
         const cookies = parseCookies(request.headers.get('Cookie') || '')
         const accessToken = cookies[`access_${userId}`]
         
