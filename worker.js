@@ -350,7 +350,7 @@ function getIndex(){
         function redirect() {
             const inputText = document.getElementById('inputText').value.trim();
             if (inputText) {
-                window.location.href = '/${encodeURIComponent(inputText)}';
+                window.location.href = '/' + encodeURIComponent(inputText);
             } else {
                 alert('请输入内链通ID');
             }
