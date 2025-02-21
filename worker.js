@@ -16,6 +16,10 @@ function validateParams(params) {
     if (typeof params.https !== 'boolean') {
         params.https = false
     }
+
+    if (typeof params.accessKey !== 'string') {
+        params.accessKey = ''
+    }
     
     return { valid: true }
 }
@@ -23,15 +27,16 @@ function validateParams(params) {
 async function handleRequest(request) {
     const url = new URL(request.url)
     const pathParts = url.pathname.split('/').filter(part => part)
-    //主页面
-    if ( url.pathname === '/' || url.pathname === '/index.html') {
+
+    // 主页面
+    if (url.pathname === '/' || url.pathname === '/index.html') {
         return new Response(getIndex(), {
             headers: { 'Content-Type': 'text/html;charset=utf-8' }
         })
     }
 
     // 注册页面路由
-    if (url.pathname === '/register' ) {
+    if (url.pathname === '/register') {
         return new Response(getRegisterHtml(), {
             headers: { 'Content-Type': 'text/html;charset=utf-8' }
         })
@@ -42,6 +47,7 @@ async function handleRequest(request) {
         switch (url.pathname) {
             case '/api/update': return handleUpdate(request)
             case '/api/create': return handleCreate(request)
+            case '/api/verify': return handleVerify(request)
         }
     }
 
@@ -58,15 +64,55 @@ async function handleRedirect(request, userId, pathParts) {
     const data = await USER_DATA.get(userId, { type: 'json' })
     if (!data) return new Response('用户不存在', { status: 404 })
 
+    // 检查是否需要密码验证
+    if (data.accessKey && data.accessKey != '') {
+        const cookies = parseCookies(request.headers.get('Cookie') || '')
+        const accessToken = cookies[`access_${userId}`]
+        
+        if (accessToken !== data.accessKey) {
+            return new Response(getPasswordHtml(userId), {
+                headers: { 'Content-Type': 'text/html;charset=utf-8' }
+            })
+        }
+    }
+
     const url = new URL(request.url)
     const protocol = data.https ? 'https' : 'http'
     
-    // 移除用户名，保留剩余路径
     pathParts.shift()
     const remainingPath = pathParts.length > 0 ? '/' + pathParts.join('/') : ''
     
     const targetUrl = `${protocol}://${data.ip}:${data.port}${remainingPath}${url.search}`
     return Response.redirect(targetUrl, 302)
+}
+
+async function handleVerify(request) {
+    let params
+    try {
+        params = await request.json()
+    } catch (e) {
+        return new Response('参数不合法', { status: 400 })
+    }
+
+    const { userId, accessKey } = params
+    if (!userId || !accessKey) {
+        return new Response('参数不完整', { status: 400 })
+    }
+
+    const data = await USER_DATA.get(userId, { type: 'json' })
+    if (!data) return new Response('用户不存在', { status: 404 })
+
+    if (data.accessKey !== accessKey) {
+        return new Response('访问密码错误', { status: 401 })
+    }
+
+    return new Response('验证成功', {
+        status: 200,
+        headers: {
+            'Set-Cookie': `access_${userId}=${accessKey}; path=/; max-age=2592000`,
+            'Content-Type': 'application/json'
+        }
+    })
 }
 
 async function handleUpdate(request) {
@@ -82,13 +128,13 @@ async function handleUpdate(request) {
         return new Response(validation.message, { status: 400 })
     }
 
-    const { userId, password, https, ip, port } = params
+    const { userId, password, https, ip, port, accessKey } = params
     const data = await USER_DATA.get(userId, { type: 'json' })
 
     if (!data) return new Response('用户不存在', { status: 404 })
     if (data.password !== password) return new Response('未认证', { status: 401 })
 
-    await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port }))
+    await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port, accessKey }))
     return new Response('更新成功', { status: 200 })
 }
 
@@ -105,9 +151,8 @@ async function handleCreate(request) {
         return new Response(validation.message, { status: 400 })
     }
 
-    const { userId, password, https, ip, port } = params
+    const { userId, password, https, ip, port, accessKey } = params
 
-    // 检查保留字
     if (isReserveduserId(userId)) {
         return new Response('用户名不可用', { status: 400 })
     }
@@ -116,13 +161,24 @@ async function handleCreate(request) {
 
     if (exists) return new Response('用户已存在', { status: 409 })
 
-    await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port }))
+    await USER_DATA.put(userId, JSON.stringify({ password, https, ip, port, accessKey }))
     return new Response('注册成功', { status: 201 })
 }
 
 function isReserveduserId(userId) {
     const reserved = ['api', 'admin', 'register', 'login', 'static']
     return reserved.includes(userId.toLowerCase())
+}
+
+function parseCookies(cookieHeader) {
+    const cookies = {}
+    if (cookieHeader) {
+        cookieHeader.split(';').forEach(cookie => {
+            const [name, value] = cookie.trim().split('=')
+            cookies[name] = value
+        })
+    }
+    return cookies
 }
 function getIndex(){
     return `
@@ -339,7 +395,7 @@ function getIndex(){
                 <li><strong>无需工具：</strong>WEB应用直接浏览器访问，客户端无需工具。</li>
                 <li><strong>高速直联：</strong>STUN内网穿透，免服务器中转点对点更高效。</li>
                 <li><strong>固定地址：</strong>穿透地址永不过期，也不需要频繁验证。</li>
-                
+                <li><strong>跳转加密：</strong>可加入验证密码，提升部分应用安全性。</li>
                 <li><strong>携带后缀：</strong>支持携带后缀跳转，无公网IP也能分享文件。</li>
             </ul>
         </div>
@@ -367,6 +423,74 @@ function getIndex(){
 </html>
     `
 }
+function getPasswordHtml(userId) {
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>访问验证</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 40px auto; padding: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; }
+        input[type="password"] { width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .error { color: #dc3545; display: none; padding: 10px; background: #f8d7da; border-radius: 4px; margin-bottom: 15px; }
+    </style>
+</head>
+<body>
+    <h2>访问验证</h2>
+    <div id="error" class="error"></div>
+    <div class="form-group">
+        <label>请输入访问密码</label>
+        <input type="password" id="accessKey" placeholder="输入访问密码">
+    </div>
+    <button onclick="verify()">验证</button>
+
+    <script>
+    async function verify() {
+        const accessKey = document.getElementById('accessKey').value.trim()
+        if (!accessKey) {
+            document.getElementById('error').style.display = 'block'
+            document.getElementById('error').textContent = '请输入访问密码'
+            return
+        }
+
+        try {
+            const response = await fetch('/api/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: '${userId}',
+                    accessKey: accessKey
+                })
+            })
+
+            if (response.status === 200) {
+                window.location.reload()
+            } else {
+                const error = await response.text()
+                document.getElementById('error').style.display = 'block'
+                document.getElementById('error').textContent = error
+            }
+        } catch (e) {
+            document.getElementById('error').style.display = 'block'
+            document.getElementById('error').textContent = '验证失败，请稍后重试'
+        }
+    }
+
+    document.getElementById('accessKey').addEventListener('keydown', function(event) {
+        if (event.key === 'Enter') {
+            verify()
+        }
+    })
+    </script>
+</body>
+</html>`
+}
+
 function getRegisterHtml() {
     return `
 <!DOCTYPE html>
@@ -412,6 +536,10 @@ function getRegisterHtml() {
         <input type="text" id="port" value="5666" placeholder="输入端口">
     </div>
     <div class="form-group">
+        <label>访问密码（可选）</label>
+        <input type="password" id="accessKey" placeholder="设置访问密码，留空则无需密码">
+    </div>
+    <div class="form-group">
         <label>
             <input type="checkbox" id="https"> 启用HTTPS
         </label>
@@ -448,7 +576,8 @@ function getRegisterHtml() {
             password: document.getElementById('password').value,
             ip: document.getElementById('ip').value.trim(),
             port: document.getElementById('port').value.trim(),
-            https: document.getElementById('https').checked
+            https: document.getElementById('https').checked,
+            accessKey: document.getElementById('accessKey').value.trim()
         }
 
         try {

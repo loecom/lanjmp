@@ -59,7 +59,8 @@
   "password": "鉴权密码",
   "https": false,
   "ip": "目标IP地址",
-  "port": "目标端口"
+  "port": "目标端口",
+  "accessKey": "访问密码，可为空"
 }
 ```
 
